@@ -1,0 +1,89 @@
+import time
+import board
+import digitalio
+from adafruit_circuitplayground import cp
+
+led1 = digitalio.DigitalInOut(board.A1)
+led1.direction = digitalio.Direction.OUTPUT
+
+led2 = digitalio.DigitalInOut(board.A3)
+led2.direction = digitalio.Direction.OUTPUT
+
+led3 = digitalio.DigitalInOut(board.A4)
+led3.direction = digitalio.Direction.OUTPUT
+
+button1 = digitalio.DigitalInOut(board.A2)
+button1.direction = digitalio.Direction.INPUT
+button1.pull = digitalio.Pull.UP  
+
+button2 = digitalio.DigitalInOut(board.A5)
+button2.direction = digitalio.Direction.INPUT
+button2.pull = digitalio.Pull.UP  
+
+LIGHT_THRESHOLD = 50
+
+TEMP_THRESHOLD = 26  
+
+
+button_released_time = None  
+button_pressed_time = None  
+led1_delay_start = None  
+
+while True:
+    button1_pressed = not button1.value  
+    button2_pressed = not button2.value  
+
+    light_level = cp.light
+
+    temperature = cp.temperature
+
+    print(
+        "Light Level: {}, Temperature: {:.2f}, Button1 Pressed: {}, Button2 Pressed: {}".format(
+            light_level, temperature, button1_pressed, button2_pressed
+        )
+    )
+
+    if button1_pressed:
+        led2.value = True
+        button_pressed_time = time.monotonic()
+        button_released_time = None
+    else:
+        if button_pressed_time is not None:
+            if time.monotonic() - button_pressed_time < 5:
+                led2.value = True
+            else:
+                if led2.value:  
+                    led1_delay_start = time.monotonic()
+                led2.value = False
+
+    if led1_delay_start is not None:
+        if time.monotonic() - led1_delay_start < 5:
+            led1.value = False
+            continue
+        else:
+            led1_delay_start = None
+
+    if not button1_pressed:
+        if light_level < LIGHT_THRESHOLD:
+            if button_released_time is None:
+                button_released_time = time.monotonic()
+            elif time.monotonic() - button_released_time >= 5:
+                led1.value = True
+        else:
+            led1.value = False
+            button_released_time = None
+    else:
+        led1.value = False
+
+    if button2_pressed:
+        led3.value = False
+        button_released_time = time.monotonic() 
+    else:
+        if button_released_time is not None:
+            if time.monotonic() - button_released_time >= 5:
+                if temperature > TEMP_THRESHOLD:
+                    led3.value = True
+                else:
+                    led3.value = False
+
+    time.sleep(0.1)
